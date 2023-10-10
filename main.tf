@@ -9,7 +9,7 @@ resource "aws_vpc" "main" {
   tags = merge (
     var.common_tags, 
     {
-        Name = var.project_name
+        Name = "${var.project_name}-${var.env}"
     },
     var.vpc_tags
  
@@ -25,7 +25,7 @@ resource "aws_internet_gateway" "main" {
   tags = merge (
     var.common_tags, 
     {
-        Name = var.project_name
+        Name = "${var.project_name}-${var.env}"
     },
     var.igw_tags
  
@@ -45,7 +45,7 @@ resource "aws_subnet" "public" {
   tags = merge( #this is a map
     var.common_tags, 
     {
-        Name = "${var.project_name}-public-${local.azs[count.index]}"
+        Name = "${var.project_name}-${var.env}-public-${local.azs[count.index]}"
     }
   )
 }
@@ -60,7 +60,7 @@ resource "aws_subnet" "private" {
   tags = merge( #this is a map
     var.common_tags, 
     {
-        Name = "${var.project_name}-private-${local.azs[count.index]}"
+        Name = "${var.project_name}-${var.env}-private-${local.azs[count.index]}"
     }
   )
 }
@@ -75,7 +75,7 @@ resource "aws_subnet" "database" {
   tags = merge( #this is a map
     var.common_tags, 
     {
-        Name = "${var.project_name}-database-${local.azs[count.index]}"
+        Name = "${var.project_name}-${var.env}-database-${local.azs[count.index]}"
     }
   )
 }
@@ -85,19 +85,31 @@ resource "aws_subnet" "database" {
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
+  # route {
+  #   cidr_block = "0.0.0.0/0"
+  #   gateway_id = aws_internet_gateway.main.id
+  # }
 
   tags = merge( #this is a map
     var.common_tags, 
     {
-        Name = "${var.project_name}-public"
+        Name = "${var.project_name}-${var.env}-public"
     },
     var.private_route_table_tags 
   )
 }
+
+
+#always add route table separately
+
+resource "aws_route" "public" {
+ 
+    route_table_id = aws_route_table.public.id
+    destination_cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+
 
 resource "aws_eip" "eip" {
 
@@ -111,7 +123,7 @@ resource "aws_nat_gateway" "main" {
   tags = merge( 
     var.common_tags, 
     {
-        Name = var.project_name
+        Name = "${var.project_name}-${var.env}"
     },
     var.nat_gateway_tags
   )
@@ -128,19 +140,27 @@ resource "aws_nat_gateway" "main" {
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main.id #here we can connecting to internet through the nat gateway
-  }
+  # route {
+  #   cidr_block = "0.0.0.0/0"
+  #   nat_gateway_id = aws_nat_gateway.main.id #here we can connecting to internet through the nat gateway
+  # }
 
   tags = merge( #this is a map
     var.common_tags, 
     {
-        Name = "${var.project_name}-private"
+        Name = "${var.project_name}-${var.env}-private"
     },
     var.private_route_table_tags 
   )
 }
+
+resource "aws_route" "private" {
+ 
+    route_table_id = aws_route_table.private.id
+    destination_cidr_block = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main.id
+  }
+
 
 
 #route table config database
@@ -148,19 +168,27 @@ resource "aws_route_table" "private" {
 resource "aws_route_table" "database" {
   vpc_id = aws_vpc.main.id
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main.id #here we can connecting to internet through the nat gateway
-  }
+  # route {
+  #   cidr_block = "0.0.0.0/0"
+  #   nat_gateway_id = aws_nat_gateway.main.id #here we can connecting to internet through the nat gateway
+  # }
 
   tags = merge( #this is a map
     var.common_tags, 
     {
-        Name = "${var.project_name}-database"
+        Name = "${var.project_name}-${var.env}-database"
     },
     var.database_route_table_tags 
   )
 }
+
+resource "aws_route" "database" {
+ 
+    route_table_id = aws_route_table.database.id
+    destination_cidr_block = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.main.id
+  }
+
 
 #association of routetables
 resource "aws_route_table_association" "public" {
@@ -189,8 +217,9 @@ resource "aws_db_subnet_group" "roboshop" {
   tags = merge( #this is a map
     var.common_tags, 
     {
-        Name = var.project_name
+        Name = "${var.project_name}-${var.env}"
     },
     var.db_subnet_group_tags
   )
 }
+
